@@ -270,19 +270,26 @@ class Slider {
 		clearInterval(this.autoplayTimer);
 	}
 
-	// Обновление пагинации (точки)
 	updatePagination() {
 		if (!this.options.pagination.enabled || !this.pagination) return;
 
-		this.pagination.innerHTML = '';
 		const totalPages = Math.ceil(this.slides.length / this.options.slidesPerView);
+		const activeIndex = Math.floor(this.currentIndex / this.options.slidesPerView);
 
+		// Если пагинация уже создана, просто обновляем классы
+		if (this.pagination.children.length === totalPages) {
+			[...this.pagination.children].forEach((dot, i) => {
+				dot.classList.toggle('active', i === activeIndex);
+			});
+			return;
+		}
+
+		// Иначе — создаём заново
+		this.pagination.innerHTML = '';
 		for (let i = 0; i < totalPages; i++) {
 			const dot = document.createElement('span');
 			dot.className = 'dot';
-			if (i === Math.floor(this.currentIndex / this.options.slidesPerView)) {
-				dot.classList.add('active');
-			}
+			if (i === activeIndex) dot.classList.add('active');
 			dot.addEventListener('click', () => {
 				this.currentIndex = i * this.options.slidesPerView;
 				this.updateSliderPosition();
@@ -430,6 +437,262 @@ function initSliders() {
 window.addEventListener('load', function () {
 	initSliders();
 })
+
+// Работа с полями формы
+// Добавление классов, работа с placeholder
+function formFieldsInit() {
+	const formFields = document.querySelectorAll('input[placeholder],textarea[placeholder]');
+	if (formFields.length) {
+		formFields.forEach(formField => {
+			if (!formField.hasAttribute('data-placeholder-nohide')) {
+				formField.dataset.placeholder = formField.placeholder;
+			}
+		});
+	}
+	document.body.addEventListener("focusin", function (e) {
+		const targetElement = e.target;
+		if ((targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA')) {
+			if (targetElement.dataset.placeholder) {
+				targetElement.placeholder = '';
+			}
+			if (!targetElement.hasAttribute('data-no-focus-classes')) {
+				targetElement.classList.add('_form-focus');
+				targetElement.parentElement.classList.add('_form-focus');
+			}
+			formValidate.removeError(targetElement);
+		}
+	});
+	document.body.addEventListener("focusout", function (e) {
+		const targetElement = e.target;
+		if ((targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA')) {
+			if (targetElement.dataset.placeholder) {
+				targetElement.placeholder = targetElement.dataset.placeholder;
+			}
+			if (!targetElement.hasAttribute('data-no-focus-classes')) {
+				targetElement.classList.remove('_form-focus');
+				targetElement.parentElement.classList.remove('_form-focus');
+			}
+			// Моментальная валидация
+			if (targetElement.hasAttribute('data-validate')) {
+				formValidate.validateInput(targetElement);
+			}
+		}
+	});
+}
+formFieldsInit();
+// Валидация форм
+let formValidate = {
+	getErrors(form) {
+		let error = 0;
+		let formRequiredItems = form.querySelectorAll('*[data-required]');
+		if (formRequiredItems.length) {
+			formRequiredItems.forEach(formRequiredItem => {
+				if ((formRequiredItem.offsetParent !== null || formRequiredItem.tagName === "SELECT") && !formRequiredItem.disabled) {
+					error += this.validateInput(formRequiredItem);
+				}
+			});
+		}
+		return error;
+	},
+	validateInput(formRequiredItem) {
+		let error = 0;
+		if (formRequiredItem.dataset.required === "email") {
+			formRequiredItem.value = formRequiredItem.value.replace(" ", "");
+			if (this.emailTest(formRequiredItem)) {
+				this.addError(formRequiredItem);
+				this.removeRight(formRequiredItem);
+				error++;
+			} else {
+				this.removeError(formRequiredItem);
+				this.addRight(formRequiredItem);
+			}
+		} else if (formRequiredItem.type === "checkbox" && !formRequiredItem.checked) {
+			this.addError(formRequiredItem);
+			this.removeRight(formRequiredItem);
+			error++;
+		} else {
+			if (!formRequiredItem.value.trim()) {
+				this.addError(formRequiredItem);
+				this.removeRight(formRequiredItem);
+				error++;
+			} else {
+				this.removeError(formRequiredItem);
+				this.addRight(formRequiredItem);
+			}
+		}
+		return error;
+	},
+	addError(formRequiredItem) {
+		formRequiredItem.classList.add('_form-error');
+		formRequiredItem.closest('.form__line').classList.add('_form-error');
+		let inputError = formRequiredItem.closest('.form__line').querySelector('.form__error');
+		if (inputError) formRequiredItem.closest('.form__line').removeChild(inputError);
+		if (formRequiredItem.dataset.error) {
+			formRequiredItem.closest('.form__line').insertAdjacentHTML('beforeend', `<div class="form__error">${formRequiredItem.dataset.error}</div>`);
+		}
+	},
+	removeError(formRequiredItem) {
+		formRequiredItem.classList.remove('_form-error');
+		formRequiredItem.closest('.form__line').classList.remove('_form-error');
+		if (formRequiredItem.closest('.form__line').querySelector('.form__error')) {
+			formRequiredItem.closest('.form__line').removeChild(formRequiredItem.closest('.form__line').querySelector('.form__error'));
+		}
+	},
+	addRight(formRequiredItem) {
+		formRequiredItem.classList.add('_form-right');
+		formRequiredItem.closest('.form__line').classList.add('_form-right');
+		let inputRight = formRequiredItem.closest('.form__line').querySelector('.form__right');
+		if (inputRight) formRequiredItem.closest('.form__line').removeChild(inputRight);
+		formRequiredItem.closest('.form__line').insertAdjacentHTML('beforeend', `<div class="form__right"></div>`);
+	},
+	removeRight(formRequiredItem) {
+		formRequiredItem.classList.remove('_form-right');
+		formRequiredItem.closest('.form__line').classList.remove('_form-right');
+		if (formRequiredItem.closest('.form__line').querySelector('.form__right')) {
+			formRequiredItem.closest('.form__line').removeChild(formRequiredItem.closest('.form__line').querySelector('.form__right'));
+		}
+	},
+	formClean(form) {
+		form.reset();
+		setTimeout(() => {
+			let inputs = form.querySelectorAll('input,textarea');
+			for (let index = 0; index < inputs.length; index++) {
+				const el = inputs[index];
+				el.parentElement.classList.remove('_form-focus', '_form-right');
+				el.classList.remove('_form-focus', '_form-right');
+				formValidate.removeError(el);
+			}
+			let checkboxes = form.querySelectorAll('.checkbox__input');
+			if (checkboxes.length > 0) {
+				for (let index = 0; index < checkboxes.length; index++) {
+					const checkbox = checkboxes[index];
+					checkbox.checked = false;
+				}
+			}
+		}, 0);
+	},
+	emailTest(formRequiredItem) {
+		return !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,8})+$/.test(formRequiredItem.value);
+	}
+}
+// Отправка формы
+function formSubmit() {
+	const forms = document.forms;
+	if (forms.length) {
+		for (const form of forms) {
+			form.addEventListener('submit', function (e) {
+				const form = e.target;
+				formSubmitAction(form, e);
+			});
+			form.addEventListener('reset', function (e) {
+				const form = e.target;
+				formValidate.formClean(form);
+			});
+		}
+	}
+	async function formSubmitAction(form, e) {
+		const error = !form.hasAttribute('data-no-validate') ? formValidate.getErrors(form) : 0;
+		if (error === 0) {
+			const ajax = form.hasAttribute('data-ajax');
+			if (ajax) { // Если режим ajax
+				e.preventDefault();
+				const formAction = form.getAttribute('action') ? form.getAttribute('action').trim() : '#';
+				const formMethod = form.getAttribute('method') ? form.getAttribute('method').trim() : 'GET';
+				const formData = new FormData(form);
+
+				form.classList.add('_sending');
+				const response = await fetch(formAction, {
+					method: formMethod,
+					body: formData
+				});
+				if (response.ok) {
+					let responseResult = await response.json();
+					form.classList.remove('_sending');
+					formSent(form, responseResult);
+				} else {
+					alert("Ошибка");
+					form.classList.remove('_sending');
+				}
+			} else if (form.hasAttribute('data-dev')) {	// Если режим разработки
+				e.preventDefault();
+				formSent(form);
+			}
+		} else {
+			e.preventDefault();
+		}
+	}
+	// Действия после отправки формы
+	function formSent(form) {
+		// // Создаем событие отправки формы
+		// document.dispatchEvent(new CustomEvent("formSent", {
+		// 	detail: {
+		// 		form: form
+		// 	}
+		// }));
+		// Показываем попап
+		setTimeout(() => {
+			openPopup('#message');
+		}, 0);
+		// Очищаем форму
+		formValidate.formClean(form);
+	}
+}
+formSubmit();
+
+// Попап
+function openPopup(selector) {
+	const popup = document.querySelector(selector);
+	if (popup) {
+		popup.classList.add('popup_show');
+		document.documentElement.classList.add('popup-show');
+		bodyLock();
+	}
+}
+
+function initPopup() {
+	document.addEventListener('click', function (e) {
+		// Открытие модального окна
+		const openBtn = e.target.closest('[data-popup]');
+		if (openBtn) {
+			e.preventDefault();
+			const selector = openBtn.getAttribute('data-popup');
+			openPopup(selector);
+			return;
+		}
+
+		// Закрытие модального окна по data-close
+		if (e.target.closest('[data-close]')) {
+			const popup = e.target.closest('.popup');
+			if (popup) {
+				popup.classList.remove('popup_show');
+				document.documentElement.classList.remove('popup-show');
+				bodyUnlock();
+			}
+			return;
+		}
+
+		// Закрытие при клике вне popup__content
+		const popup = e.target.closest('.popup');
+		if (popup && !e.target.closest('.popup__content')) {
+			popup.classList.remove('popup_show');
+			document.documentElement.classList.remove('popup-show');
+			bodyUnlock();
+		}
+	});
+
+	// Закрытие модалки по клавише Escape
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape') {
+			const activePopup = document.querySelector('.popup.popup-show');
+			if (activePopup) {
+				activePopup.classList.remove('popup_show');
+				document.documentElement.classList.remove('popup-show');
+				bodyUnlock();
+			}
+		}
+	});
+}
+initPopup();
 
 //========================================================================================================================================================
 // Вспомогательный модуль
