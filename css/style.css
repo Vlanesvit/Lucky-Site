@@ -835,6 +835,17 @@ body::after {
   border: 2px solid transparent;
   opacity: 0;
 }
+@media (any-hover: hover) {
+  .process__tabs .tabs__title:hover::before {
+    opacity: 0;
+  }
+  .process__tabs .tabs__title:hover::after {
+    opacity: 1;
+  }
+  .process__tabs .tabs__title:hover .tabs__icon {
+    background-color: var(--bg-item);
+  }
+}
 .process__tabs .tabs__title._tab-active::before {
   opacity: 0;
 }
@@ -1310,6 +1321,22 @@ body::after {
   .contact__list ul li svg {
     width: 16px;
     height: 16px;
+  }
+}
+.contact__list ul li a {
+  display: inline;
+  text-decoration: none;
+  background-image: var(--gradient);
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  background-size: 0 2px;
+  -webkit-transition: background-size 0.5s ease 0s;
+  transition: background-size 0.5s ease 0s;
+}
+@media (any-hover: hover) {
+  .contact__list ul li a:hover {
+    background-size: 100% 2px;
+    background-position: bottom left;
   }
 }
 .contact__form {
