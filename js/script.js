@@ -449,6 +449,20 @@ function formFieldsInit() {
 			}
 		});
 	}
+
+	// Инициализация Inputmask для телефонов
+	const phoneInputs = document.querySelectorAll('input[data-required="tel"]');
+	if (phoneInputs.length) {
+		phoneInputs.forEach(input => {
+			Inputmask({
+				mask: "+7 (999) 999-99-99",
+				showMaskOnHover: false,
+				clearIncomplete: true,
+				autoUnmask: false
+			}).mask(input);
+		});
+	}
+
 	document.body.addEventListener("focusin", function (e) {
 		const targetElement = e.target;
 		if ((targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA')) {
@@ -496,6 +510,8 @@ let formValidate = {
 	},
 	validateInput(formRequiredItem) {
 		let error = 0;
+
+		// Проверка email
 		if (formRequiredItem.dataset.required === "email") {
 			formRequiredItem.value = formRequiredItem.value.replace(" ", "");
 			if (this.emailTest(formRequiredItem)) {
@@ -506,11 +522,31 @@ let formValidate = {
 				this.removeError(formRequiredItem);
 				this.addRight(formRequiredItem);
 			}
-		} else if (formRequiredItem.type === "checkbox" && !formRequiredItem.checked) {
+		}
+
+		// Проверка телефона
+		else if (formRequiredItem.dataset.required === "tel") {
+			const unmaskedValue = formRequiredItem.inputmask.unmaskedvalue();
+			// Проверка: должно быть 10 цифр (без кода страны, например, 9123456789)
+			if (unmaskedValue.length !== 10) {
+				this.addError(formRequiredItem);
+				this.removeRight(formRequiredItem);
+				error++;
+			} else {
+				this.removeError(formRequiredItem);
+				this.addRight(formRequiredItem);
+			}
+		}
+
+		// Проверка чекбокса
+		else if (formRequiredItem.type === "checkbox" && !formRequiredItem.checked) {
 			this.addError(formRequiredItem);
 			this.removeRight(formRequiredItem);
 			error++;
-		} else {
+		}
+
+		// Остальные поля (например, текст)
+		else {
 			if (!formRequiredItem.value.trim()) {
 				this.addError(formRequiredItem);
 				this.removeRight(formRequiredItem);
@@ -623,12 +659,12 @@ function formSubmit() {
 	}
 	// Действия после отправки формы
 	function formSent(form) {
-		// // Создаем событие отправки формы
-		// document.dispatchEvent(new CustomEvent("formSent", {
-		// 	detail: {
-		// 		form: form
-		// 	}
-		// }));
+		// Создаем событие отправки формы
+		document.dispatchEvent(new CustomEvent("formSent", {
+			detail: {
+				form: form
+			}
+		}));
 		// Показываем попап
 		setTimeout(() => {
 			openPopup('#message');
